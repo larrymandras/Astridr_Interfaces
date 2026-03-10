@@ -1,0 +1,28 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "astridr-interfaces"
+version = "0.1.0"
+description = "Base abstract classes and data types for the Astridr agent framework"
+readme = "README.md"
+requires-python = ">= 3.11"
+license = "MIT"
+authors = [
+    { name = "Larry Mandras", email = "mandrasle@gmail.com" },
+]
+keywords = ["astridr", "agent", "interfaces", "abc"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Typing :: Typed",
+]
+dependencies = [
+    "pydantic",
+    "structlog",
+]
+
+[project.urls]
+Repository = "https://github.com/larrymandras/Astridr_Interfaces"
