@@ -2,9 +2,23 @@
 
 from __future__ import annotations
 
+import enum
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
+
+
+class MemoryTier(enum.Enum):
+    """Resolution tier for memory retrieval.
+
+    L0: One-sentence summary (~10-20 tokens) — for scanning/browsing.
+    L1: Paragraph overview (~50-100 tokens) — for context building.
+    L2: Full content — for deep retrieval.
+    """
+
+    L0 = "l0"
+    L1 = "l1"
+    L2 = "l2"
 
 
 @dataclass
@@ -19,10 +33,20 @@ class MemoryEntry:
     score: float = 0.0
     created_at: str = ""
     metadata: dict = None  # type: ignore[assignment]
+    l0_summary: str = ""
+    l1_overview: str = ""
 
     def __post_init__(self) -> None:
         if self.metadata is None:
             self.metadata = {}
+
+    def at_tier(self, tier: MemoryTier) -> str:
+        """Return content at the requested resolution tier."""
+        if tier == MemoryTier.L0 and self.l0_summary:
+            return self.l0_summary
+        if tier == MemoryTier.L1 and self.l1_overview:
+            return self.l1_overview
+        return self.content
 
 
 @dataclass
