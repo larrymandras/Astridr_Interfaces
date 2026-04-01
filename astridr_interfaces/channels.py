@@ -8,6 +8,25 @@ from typing import Any, Callable, Coroutine
 
 
 @dataclass
+class Attachment:
+    """A file attachment (image, document, audio, etc.)."""
+
+    file_path: str | None = None
+    file_url: str | None = None
+    file_bytes: bytes | None = None
+    mime_type: str = "application/octet-stream"
+    filename: str = "file"
+
+
+@dataclass
+class InlineButton:
+    """An inline button for approval gates and interactive responses."""
+
+    text: str
+    callback_data: str
+
+
+@dataclass
 class IncomingMessage:
     """A message received from a channel."""
 
@@ -31,26 +50,17 @@ class OutgoingMessage:
     attachments: list[Attachment] = field(default_factory=list)
     parse_mode: str | None = None  # "markdown", "html", etc.
     buttons: list[InlineButton] | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
-@dataclass
-class Attachment:
-    """A file attachment (image, document, audio, etc.)."""
-
-    file_path: str | None = None
-    file_url: str | None = None
-    file_bytes: bytes | None = None
-    mime_type: str = "application/octet-stream"
-    filename: str = "file"
-
-
-@dataclass
-class InlineButton:
-    """An inline button for approval gates and interactive responses."""
-
-    text: str
-    callback_data: str
-
+__all__ = [
+    "IncomingMessage",
+    "OutgoingMessage",
+    "Attachment",
+    "InlineButton",
+    "MessageHandler",
+    "BaseChannel",
+]
 
 # Type alias for the message handler callback
 MessageHandler = Callable[[IncomingMessage], Coroutine[Any, Any, None]]
