@@ -94,3 +94,21 @@ class BaseChannel(ABC):
     async def stop(self) -> None:
         """Gracefully stop the channel listener."""
         ...
+
+    async def before_agent_reply(
+        self,
+        message: "IncomingMessage",
+    ) -> str | None:
+        """Optional hook: return a synthetic reply to short-circuit the LLM.
+
+        Channel plugins override this to handle deterministic queries
+        (calendar lookups, status checks, FAQ answers) without LLM overhead.
+
+        Args:
+            message: The incoming message to potentially handle.
+
+        Returns:
+            A non-empty string to use as the response (skipping the LLM),
+            or None to let the LLM process the message normally (default).
+        """
+        return None

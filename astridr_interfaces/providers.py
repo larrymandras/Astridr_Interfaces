@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import Any
 
 
@@ -53,13 +54,44 @@ class LLMResponse:
     raw: dict[str, Any] = field(default_factory=dict)
 
 
+class ErrorClassification(str, Enum):
+    """Classification of a provider error for retry/failover decisions."""
+
+    TRANSIENT = "transient"       # 5xx, unknown — retry with backoff
+    PERMANENT = "permanent"       # 4xx auth/client errors — fail immediately
+    RATE_LIMITED = "rate_limited" # 429 — wait rate_limit_cooldown_seconds
+
+
+# HTTP status codes that map to each classification
+_PERMANENT_CODES = {400, 401, 403}
+_RATE_LIMITED_CODES = {429}
+_TRANSIENT_CODES = {500, 502, 503, 504}
+
+
 class ProviderError(Exception):
     """Error from an LLM provider."""
 
-    def __init__(self, message: str, http_status: int | None = None, provider: str = ""):
+    def __init__(
+        self,
+        message: str,
+        http_status: int | None = None,
+        provider: str = "",
+        classification: ErrorClassification | None = None,
+    ):
         super().__init__(message)
         self.http_status = http_status
         self.provider = provider
+
+        if classification is not None:
+            # Explicit classification wins
+            self.classification: ErrorClassification = classification
+        elif http_status in _PERMANENT_CODES:
+            self.classification = ErrorClassification.PERMANENT
+        elif http_status in _RATE_LIMITED_CODES:
+            self.classification = ErrorClassification.RATE_LIMITED
+        else:
+            # TRANSIENT codes, None, or any other status — default to TRANSIENT
+            self.classification = ErrorClassification.TRANSIENT
 
 
 class ContextOverflowError(ProviderError):
@@ -83,6 +115,43 @@ class BaseProvider(ABC):
     """
 
     name: str
+    _langfuse_tracer: Any = None  # Optional[LangfuseTracer] — set via DI, no import to avoid circular
+
+    def set_langfuse_tracer(self, tracer: Any) -> None:
+        """Inject LangfuseTracer for observability. Called from bootstrap."""
+        self._langfuse_tracer = tracer
+
+    async def chat_with_trace(
+        self,
+        messages: list[Message],
+        tools: list[ToolDefinition] | None = None,
+        model: str | None = None,
+        temperature: float = 0.7,
+        *,
+        agent_id: str = "unknown",
+        session_id: str = "unknown",
+        **kwargs: Any,
+    ) -> LLMResponse:
+        """Chat with Langfuse tracing. Falls back to plain chat() if no tracer.
+
+        All callers that want observability should use this method instead of chat().
+        Tracer failures never block the main conversation flow (T-73-04).
+        """
+        if self._langfuse_tracer is None:
+            return await self.chat(messages, tools, model, temperature, **kwargs)
+        async with self._langfuse_tracer.trace_llm_call(
+            agent_id=agent_id,
+            session_id=session_id,
+            model=model or "",
+        ) as update_span:
+            response = await self.chat(messages, tools, model, temperature, **kwargs)
+            update_span(
+                input_tokens=response.input_tokens,
+                output_tokens=response.output_tokens,
+                cost_usd=response.cost_usd,
+                output=response.content or "",
+            )
+            return response
 
     @abstractmethod
     async def chat(
