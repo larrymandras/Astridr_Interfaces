@@ -115,43 +115,6 @@ class BaseProvider(ABC):
     """
 
     name: str
-    _langfuse_tracer: Any = None  # Optional[LangfuseTracer] — set via DI, no import to avoid circular
-
-    def set_langfuse_tracer(self, tracer: Any) -> None:
-        """Inject LangfuseTracer for observability. Called from bootstrap."""
-        self._langfuse_tracer = tracer
-
-    async def chat_with_trace(
-        self,
-        messages: list[Message],
-        tools: list[ToolDefinition] | None = None,
-        model: str | None = None,
-        temperature: float = 0.7,
-        *,
-        agent_id: str = "unknown",
-        session_id: str = "unknown",
-        **kwargs: Any,
-    ) -> LLMResponse:
-        """Chat with Langfuse tracing. Falls back to plain chat() if no tracer.
-
-        All callers that want observability should use this method instead of chat().
-        Tracer failures never block the main conversation flow (T-73-04).
-        """
-        if self._langfuse_tracer is None:
-            return await self.chat(messages, tools, model, temperature, **kwargs)
-        async with self._langfuse_tracer.trace_llm_call(
-            agent_id=agent_id,
-            session_id=session_id,
-            model=model or "",
-        ) as update_span:
-            response = await self.chat(messages, tools, model, temperature, **kwargs)
-            update_span(
-                input_tokens=response.input_tokens,
-                output_tokens=response.output_tokens,
-                cost_usd=response.cost_usd,
-                output=response.content or "",
-            )
-            return response
 
     @abstractmethod
     async def chat(
