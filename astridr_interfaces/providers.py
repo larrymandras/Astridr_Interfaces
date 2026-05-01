@@ -137,6 +137,8 @@ class BaseProvider(ABC):
         All callers that want observability should use this method instead of chat().
         Tracer failures never block the main conversation flow (T-73-04).
         """
+        # Forward session_id to chat() so ModelRouter can look up session overrides
+        kwargs["session_id"] = session_id
         if self._langfuse_tracer is None:
             return await self.chat(messages, tools, model, temperature, **kwargs)
         async with self._langfuse_tracer.trace_llm_call(
@@ -160,6 +162,7 @@ class BaseProvider(ABC):
         tools: list[ToolDefinition] | None = None,
         model: str | None = None,
         temperature: float = 0.7,
+        **kwargs: Any,
     ) -> LLMResponse:
         """Send messages to the LLM and get a response.
 
